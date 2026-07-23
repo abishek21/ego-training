@@ -19,6 +19,9 @@ import torch
 from pathlib import Path
 from tqdm import tqdm
 
+# Reduce CUDA memory fragmentation for long videos.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 # Workaround for cuDNN init errors on some driver/torch combos.
 # Falls back to non-cuDNN CUDA kernels (slightly slower but reliable).
 torch.backends.cudnn.enabled = False
@@ -82,9 +85,15 @@ def run_segmentation(video_path, prompts_path, output_dir, max_frames=None):
     predictor = build_sam2_video_predictor(model_cfg, checkpoint, device=device)
     print(f"   SAM 2 loaded on: {device}")
 
-    # Initialize inference state on the extracted frames
+    # Initialize inference state on the extracted frames.
+    # offload_*_to_cpu keeps frames/features in CPU RAM (streamed to GPU as needed)
+    # so long videos don't blow up GPU memory.
     print("\n🚀 Initializing video predictor...")
-    inference_state = predictor.init_state(video_path=str(frames_dir))
+    inference_state = predictor.init_state(
+        video_path=str(frames_dir),
+        offload_video_to_cpu=True,
+        offload_state_to_cpu=True,
+    )
 
     # Add clicked points for each object on the prompt frame
     prompt_frame = prompts["frame_idx"]
