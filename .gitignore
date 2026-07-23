@@ -1,0 +1,37 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.Python
+
+# Model weights (too large for git)
+models/*.task
+*.pt
+*.pth
+*.safetensors
+checkpoints/
+
+# Video files (too large)
+*.mp4
+*.mov
+*.avi
+
+# Output artifacts
+output/**/*.mp4
+output/**/frames/
+output/**/masks/
+sam2_pipeline/masks_output/
+sam2_pipeline/sam2/
+sam2_pipeline/checkpoints/
+
+# Large prediction JSONs (optional — comment out if you want to track)
+output/full_video/predictions.json
+
+# Test artifacts
+output/**/test_frames/
+*_test.json
+
+# OS
+.DS_Store
