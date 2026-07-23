@@ -20,7 +20,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def extract_frames(video_path: str, frames_dir: Path):
+def extract_frames(video_path: str, frames_dir: Path, max_frames: int = None):
     """SAM 2 video predictor needs frames as JPEG files in a directory."""
     frames_dir.mkdir(parents=True, exist_ok=True)
 
@@ -30,11 +30,16 @@ def extract_frames(video_path: str, frames_dir: Path):
     frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    if max_frames:
+        total = min(total, max_frames)
+
     print(f"📹 Extracting {total} frames to {frames_dir}...")
     idx = 0
     while True:
         ret, frame = cap.read()
         if not ret:
+            break
+        if max_frames and idx >= max_frames:
             break
         # SAM 2 expects frames named as %05d.jpg
         cv2.imwrite(str(frames_dir / f"{idx:05d}.jpg"), frame)
@@ -45,7 +50,7 @@ def extract_frames(video_path: str, frames_dir: Path):
     return idx, fps, frame_w, frame_h
 
 
-def run_segmentation(video_path, prompts_path, output_dir):
+def run_segmentation(video_path, prompts_path, output_dir, max_frames=None):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     frames_dir = output_dir / "frames"
@@ -55,7 +60,7 @@ def run_segmentation(video_path, prompts_path, output_dir):
         prompts = json.load(f)
 
     # Extract frames
-    n_frames, fps, frame_w, frame_h = extract_frames(video_path, frames_dir)
+    n_frames, fps, frame_w, frame_h = extract_frames(video_path, frames_dir, max_frames)
 
     # Import SAM 2
     print("\n🔧 Loading SAM 2...")
@@ -155,6 +160,8 @@ if __name__ == "__main__":
     parser.add_argument("--video", required=True)
     parser.add_argument("--prompts", required=True)
     parser.add_argument("--output", default="masks_output")
+    parser.add_argument("--max-frames", type=int, default=None,
+                        help="Limit number of frames (for testing)")
     args = parser.parse_args()
 
-    run_segmentation(args.video, args.prompts, args.output)
+    run_segmentation(args.video, args.prompts, args.output, args.max_frames)
