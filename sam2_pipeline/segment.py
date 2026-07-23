@@ -51,7 +51,10 @@ def extract_frames(video_path: str, frames_dir: Path, max_frames: int = None):
 
 
 def run_segmentation(video_path, prompts_path, output_dir, max_frames=None):
-    output_dir = Path(output_dir)
+    # Resolve to absolute paths (script may run from a different cwd)
+    video_path = str(Path(video_path).resolve())
+    prompts_path = str(Path(prompts_path).resolve())
+    output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     frames_dir = output_dir / "frames"
 
@@ -66,8 +69,10 @@ def run_segmentation(video_path, prompts_path, output_dir, max_frames=None):
     print("\n🔧 Loading SAM 2...")
     from sam2.build_sam import build_sam2_video_predictor
 
-    checkpoint = "checkpoints/sam2.1_hiera_large.pt"
-    model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
+    # Absolute paths so this works regardless of working directory
+    script_dir = Path(__file__).resolve().parent
+    checkpoint = str(script_dir / "checkpoints" / "sam2.1_hiera_large.pt")
+    model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"  # resolved by hydra within sam2 pkg
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     predictor = build_sam2_video_predictor(model_cfg, checkpoint, device=device)
