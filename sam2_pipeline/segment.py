@@ -19,6 +19,10 @@ import torch
 from pathlib import Path
 from tqdm import tqdm
 
+# Workaround for cuDNN init errors on some driver/torch combos.
+# Falls back to non-cuDNN CUDA kernels (slightly slower but reliable).
+torch.backends.cudnn.enabled = False
+
 
 def extract_frames(video_path: str, frames_dir: Path, max_frames: int = None):
     """SAM 2 video predictor needs frames as JPEG files in a directory."""
