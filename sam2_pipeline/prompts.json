@@ -1,0 +1,28 @@
+{
+  "frame_idx": 0,
+  "video": "/Users/abishek/Downloads/ego_press.mp4",
+  "objects": {
+    "1": {
+      "label": "iron",
+      "points": [
+        [
+          3345,
+          1899
+        ],
+        [
+          3394,
+          2023
+        ],
+        [
+          3589,
+          1933
+        ]
+      ],
+      "labels": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

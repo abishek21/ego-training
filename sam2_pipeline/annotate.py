@@ -62,13 +62,14 @@ def annotate(video_path: str, output_path: str, frame_idx: int = 0):
     state = {
         "current_obj": 1,
         "objects": {},  # obj_id -> {"points": [], "labels": []}
+        "click_history": [],  # list of (obj_id, artist) for undo
     }
 
     fig, ax = plt.subplots(figsize=(16, 9))
     ax.imshow(frame_rgb)
     ax.set_title(
         "LEFT-click = add point | RIGHT-click = negative point\n"
-        "Keys 1-5 = switch object | 's' = save & exit\n"
+        "Keys 1-5 = switch object | 'u' = undo | 's' = save & exit\n"
         f"Current object: {state['current_obj']} ({DEFAULT_LABELS.get(1, 'obj1')})"
     )
 
@@ -79,7 +80,7 @@ def annotate(video_path: str, output_path: str, frame_idx: int = 0):
         label = DEFAULT_LABELS.get(obj, f"obj{obj}")
         ax.set_title(
             "LEFT-click = add point | RIGHT-click = negative point\n"
-            "Keys 1-5 = switch object | 's' = save & exit\n"
+            "Keys 1-5 = switch object | 'u' = undo | 's' = save & exit\n"
             f"Current object: {obj} ({label})"
         )
         fig.canvas.draw_idle()
@@ -106,10 +107,25 @@ def annotate(video_path: str, output_path: str, frame_idx: int = 0):
         artist = ax.plot(x, y, marker, color=color, markersize=18,
                          markeredgecolor="black", markeredgewidth=1.5)[0]
         plotted.append(artist)
+        state["click_history"].append((obj, artist))  # track for undo
         fig.canvas.draw_idle()
 
         sign = "+" if is_positive else "-"
         print(f"  Object {obj}: {sign}point at ({x}, {y})")
+
+    def undo_last():
+        if not state["click_history"]:
+            print("  (nothing to undo)")
+            return
+        obj, artist = state["click_history"].pop()
+        # Remove from data
+        if obj in state["objects"] and state["objects"][obj]["points"]:
+            pt = state["objects"][obj]["points"].pop()
+            state["objects"][obj]["labels"].pop()
+            print(f"  ↩ Undo: removed point {pt} from object {obj}")
+        # Remove from plot
+        artist.remove()
+        fig.canvas.draw_idle()
 
     def on_key(event):
         if event.key in "123456789":
@@ -117,6 +133,8 @@ def annotate(video_path: str, output_path: str, frame_idx: int = 0):
             redraw_title()
             print(f"→ Switched to object {event.key} "
                   f"({DEFAULT_LABELS.get(int(event.key), 'obj')})")
+        elif event.key == "u":
+            undo_last()
         elif event.key == "s":
             save_and_close()
 
@@ -153,6 +171,7 @@ def annotate(video_path: str, output_path: str, frame_idx: int = 0):
     print("LEFT-click  = positive point (this IS the object)")
     print("RIGHT-click = negative point (this is NOT the object)")
     print("Keys 1-5    = switch which object you're labeling")
+    print("Key 'u'     = undo last point")
     print("Key 's'     = save and exit")
     print()
     print("Object IDs:", DEFAULT_LABELS)
