@@ -48,3 +48,8 @@ sam2_pipeline/**/masks/
 
 # OS
 .DS_Store
+
+# PhysX exploratory crops (keep only chosen f950)
+physx_pipeline/iron_16s_*
+physx_pipeline/iron_frame*
+physx_pipeline/*.preview.png
