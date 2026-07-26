@@ -31,43 +31,52 @@ Generate a simulation-ready 3D asset (URDF/MJCF) from a single iron image.
 !python download.py
 ```
 
-### 5. Upload your iron image
+### 5. Upload your iron images (both RGB and RGBA)
 ```python
 from google.colab import files
-uploaded = files.upload()   # upload iron_frame200.png
-!mkdir -p demo
-!mv iron_frame*.png demo/
+uploaded = files.upload()   # upload iron_f950_rgb.png AND iron_f950_rgba.png
+!mkdir -p demo_rgb demo_rgba
+!mv iron_f950_rgb.png  demo_rgb/
+!mv iron_f950_rgba.png demo_rgba/
 ```
 
-### 6. Run the pipeline
+### 6. Run the pipeline — TWICE (RGB with bg-removal, RGBA without)
+
+**Run A — RGB bbox crop (let PhysX remove background):**
 ```python
-# Stage 1: VLM understands the object
 !python 1_vlm_demo.py \
-    --demo_path ./demo \
+    --demo_path ./demo_rgb \
+    --save_part_ply True \
+    --remove_bg True \
+    --ckpt ./pretrain/vlm
+!python 2_decoder.py
+!python 3_split.py
+!python 4_simready_gen.py \
+    --voxel_define 32 --basepath ./test_rgb \
+    --process 0 --fixed_base 0 --deformable 0
+```
+
+**Run B — RGBA masked crop (background already removed):**
+```python
+!python 1_vlm_demo.py \
+    --demo_path ./demo_rgba \
     --save_part_ply True \
     --remove_bg False \
     --ckpt ./pretrain/vlm
-
-# Stage 2: decode to 3D
 !python 2_decoder.py
-
-# Stage 3: split into parts
 !python 3_split.py
-
-# Stage 4: export URDF + MJCF
 !python 4_simready_gen.py \
-    --voxel_define 32 \
-    --basepath ./test_demo \
-    --process 0 \
-    --fixed_base 0 \
-    --deformable 0
+    --voxel_define 32 --basepath ./test_rgba \
+    --process 0 --fixed_base 0 --deformable 0
 ```
 
-### 7. Download the results
+### 7. Download both results
 ```python
-!zip -r iron_asset.zip ./test_demo
+!zip -r iron_rgb_asset.zip  ./test_rgb
+!zip -r iron_rgba_asset.zip ./test_rgba
 from google.colab import files
-files.download('iron_asset.zip')
+files.download('iron_rgb_asset.zip')
+files.download('iron_rgba_asset.zip')
 ```
 
 ## Expected Output
