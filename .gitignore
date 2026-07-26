@@ -1,5 +1,6 @@
 # Python
 venv/
+venv_rgbd/
 __pycache__/
 *.pyc
 *.pyo
@@ -28,10 +29,22 @@ sam2_pipeline/checkpoints/
 
 # Large prediction JSONs (optional — comment out if you want to track)
 output/full_video/predictions.json
+output/full_video/keypoints_hand.json
 
 # Test artifacts
 output/**/test_frames/
 *_test.json
+
+# RGB-D reconstruction outputs (large .ply files)
+rgbd_reconstruction/out_*/
+*.ply
+
+# SAM2 mask outputs + extracted frames (large, regenerable)
+sam2_pipeline/masks_full/
+sam2_pipeline/masks_test/
+sam2_pipeline/**/frames/
+sam2_pipeline/**/masks/
+*.npz
 
 # OS
 .DS_Store

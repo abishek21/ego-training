@@ -54,8 +54,14 @@ def overlay(video_path, masks_dir, output_path):
         w.release()
 
     print("🎨 Rendering mask overlays...")
+
+    # Only render up to the last frame that has a mask (skip the rest)
+    mask_files = sorted(masks_path.glob("*.npz"))
+    last_mask_idx = int(mask_files[-1].stem) if mask_files else -1
+    print(f"   Masks available up to frame {last_mask_idx}; rendering {last_mask_idx + 1} frames")
+
     frame_idx = 0
-    while True:
+    while frame_idx <= last_mask_idx:
         ret, frame = cap.read()
         if not ret:
             break
@@ -68,10 +74,8 @@ def overlay(video_path, masks_dir, output_path):
                 mask = data[key].astype(bool)
                 color = OBJ_COLORS.get(obj_id, (255, 255, 255))
 
-                # Colored overlay where mask is True
-                colored = np.zeros_like(frame)
-                colored[mask] = color
-                frame = cv2.addWeighted(frame, 1.0, colored, ALPHA, 0)
+                # Blend color only on masked pixels (in-place, no full-frame alloc)
+                frame[mask] = (frame[mask] * (1 - ALPHA) + np.array(color) * ALPHA).astype(np.uint8)
 
                 # Draw contour outline
                 mask_u8 = mask.astype(np.uint8) * 255
@@ -94,8 +98,8 @@ def overlay(video_path, masks_dir, output_path):
         writer.write(frame)
         frame_idx += 1
 
-        if frame_idx % 60 == 0:
-            print(f"   Frame {frame_idx}")
+        if frame_idx % 30 == 0:
+            print(f"   Frame {frame_idx}/{last_mask_idx + 1}")
 
     cap.release()
     writer.release()
