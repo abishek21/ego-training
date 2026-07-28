@@ -27,9 +27,11 @@ from typing import Optional
 
 import cv2
 import numpy as np
-import mediapipe as mp
 
 from calibration import StereoCalib, CameraCalib
+
+# NOTE: mediapipe is imported lazily inside StereoHandDetector so this module
+# can be used with the WiLoR backend on machines without mediapipe installed.
 
 
 # MediaPipe hand landmark topology (for bone-length validation + rendering)
@@ -129,6 +131,8 @@ class StereoHandDetector:
         # fisheye ego data (38% raw -> 29% CLAHE). Default OFF. The real
         # bottleneck is MediaPipe on fisheye; upgrade to WiLoR/HaMeR for gains.
         self.enhance = enhance
+        import mediapipe as mp          # lazy import (not needed for WiLoR path)
+        self._mp = mp
         from pathlib import Path
         if model_path is None:
             # Default to the repo's downloaded model.
@@ -155,7 +159,7 @@ class StereoHandDetector:
         # original image space, so geometry (undistort/triangulate) is intact.
         det_input = enhance_for_detection(image_bgr) if self.enhance else image_bgr
         rgb = cv2.cvtColor(det_input, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        mp_image = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb)
         res = self._det.detect(mp_image)
         out: list[HandDetection2D] = []
         if not res.hand_landmarks:
