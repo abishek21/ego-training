@@ -55,6 +55,8 @@ stereo_3d/undistort_compare/
 stereo_3d/**/_frame3d_*.jpg
 stereo_3d/**/_wilor_frame3d_*.jpg
 stereo_3d/**/*.jpg
+# Large derived hand outputs (regenerable from the pipeline)
+stereo_3d/hands_3d*.json
 
 # OS
 .DS_Store

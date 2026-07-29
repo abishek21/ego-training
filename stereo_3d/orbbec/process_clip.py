@@ -125,6 +125,12 @@ def main(data_dir, out_dir, max_frames, detector_kind="mediapipe"):
             frame_rec["hands"].append({
                 "handedness": h.handedness,
                 "keypoints_3d": h.keypoints_3d.round(5).tolist(),
+                # Raw detector 2D pixels per camera (source of triangulation).
+                # Included so the JSON is self-contained: clients can overlay
+                # in 2D directly, and reproj_error is auditable. These are the
+                # detector's PREDICTIONS (WiLoR/MediaPipe), NOT ground truth.
+                "keypoints_2d_left": h.left_2d.round(2).tolist(),
+                "keypoints_2d_right": h.right_2d.round(2).tolist(),
                 "wrist_distance_m": round(h.distance_m, 4),
                 "hand_span_m": round(h.hand_span_m(), 4),
                 "reproj_error": round(h.reproj_error_px, 5),
