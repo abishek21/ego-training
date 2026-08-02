@@ -118,18 +118,9 @@ def run_segmentation(video_path, prompts_path, output_dir, max_frames=None):
 
     # Propagate through the whole video
     print("\n🎬 Propagating masks across all frames...")
-    video_segments = {}  # frame_idx -> {obj_id: mask}
-
-    for out_frame_idx, out_obj_ids, out_mask_logits in tqdm(
-        predictor.propagate_in_video(inference_state), total=n_frames
-    ):
-        video_segments[out_frame_idx] = {
-            out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()
-            for i, out_obj_id in enumerate(out_obj_ids)
-        }
-
-    # Save masks — compressed npz per frame (only non-empty)
-    print("\n💾 Saving masks...")
+    # Memory-safe: SAVE each frame's masks to disk DURING propagation instead of
+    # accumulating every full-res mask in a dict (that dict was ~15GB for a long
+    # 1600x1300 clip and caused OOM/"Killed"). Bounded memory regardless of length.
     masks_dir = output_dir / "masks"
     masks_dir.mkdir(exist_ok=True)
 
@@ -143,21 +134,19 @@ def run_segmentation(video_path, prompts_path, output_dir, max_frames=None):
         "frames_with_masks": [],
     }
 
-    for frame_idx, seg in tqdm(video_segments.items(), total=len(video_segments)):
-        # Stack masks: shape (n_objects, H, W)
-        obj_ids = sorted(seg.keys())
-        if not obj_ids:
-            continue
-
+    for out_frame_idx, out_obj_ids, out_mask_logits in tqdm(
+        predictor.propagate_in_video(inference_state), total=n_frames
+    ):
         mask_stack = {}
-        for obj_id in obj_ids:
-            mask = seg[obj_id].squeeze()  # (H, W) bool
+        for i, out_obj_id in enumerate(out_obj_ids):
+            mask = (out_mask_logits[i] > 0.0).squeeze().cpu().numpy()  # (H,W) bool
             if mask.any():
-                mask_stack[f"obj_{obj_id}"] = mask.astype(np.uint8)
-
+                mask_stack[f"obj_{out_obj_id}"] = mask.astype(np.uint8)
         if mask_stack:
-            np.savez_compressed(masks_dir / f"{frame_idx:05d}.npz", **mask_stack)
-            summary["frames_with_masks"].append(frame_idx)
+            np.savez_compressed(masks_dir / f"{out_frame_idx:05d}.npz", **mask_stack)
+            summary["frames_with_masks"].append(int(out_frame_idx))
+        # free per-frame GPU/CPU tensors promptly
+        del out_mask_logits
 
     with open(output_dir / "summary.json", "w") as f:
         json.dump(summary, f, indent=2)

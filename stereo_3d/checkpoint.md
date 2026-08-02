@@ -165,6 +165,15 @@ untouched:  `hands_3d.json` -> filter -> pose -> world.
 - **4a — SAM2 on the 2 big objects** (red bag(s), + attempt netting). Reuse
   `sam2_pipeline/`. Prompt the active red bag near the hands. GATE: eyeball which
   objects segment cleanly on 3-4 representative frames BEFORE committing.
+  - **SPIKE RESULT (2026-08-02): PASSED.** 100-frame spike on left cam, 2 objects
+    (`package_bag` 20pts incl. negatives, `clips_bag` netting 14pts). BOTH masks
+    clean — even the translucent netting held (better than expected). SAM2.1 Large
+    on A40, ~3.3 it/s. Prompts saved: `sam2_pipeline/prompts_stereo.json` (frame 0).
+  - **NOW RUNNING:** full left-cam segmentation (3587 frames, ~18min) →
+    `masks_left_full/`. Right cam deferred (decide after checking left holds up).
+  - **SAM2 gotcha (fixed):** repo cloned into `sam2_pipeline/sam2/` shadows the
+    installed pkg. Fix: `mv sam2 /workspace/sam2_repo && pip install -e .`; run
+    segment.py from `sam2_pipeline/`. Checkpoints stay in `sam2_pipeline/checkpoints`.
 - **4b — lift masks to 3D** (stereo triangulate mask centroid/region; undistort pts) +
   **hand↔object contact events** (3D distance thresholds → grasp/release).
 - **4c — activity segmentation** from hand↔object 3D proximity:
