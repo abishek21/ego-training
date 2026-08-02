@@ -12,14 +12,16 @@ EUROC_DIR="${EUROC_DIR:-/workspace/euroc_MH01}"
 BIN="$ORB/Examples/Stereo-Inertial/stereo_inertial_euroc"
 YAML="$ORB/Examples/Stereo-Inertial/EuRoC.yaml"
 VOC="$ORB/Vocabulary/ORBvoc.txt"
-URL="http://robotics.ethz.ch/~asl-datasets/ijrr_euroc_mav_dataset/machine_hall/MH_01_easy/MH_01_easy.zip"
+# ETH's HTTP (port 80) server is flaky; HTTPS (443) usually works. Override with
+# EUROC_URL=... if you have a faster mirror.
+URL="${EUROC_URL:-https://robotics.ethz.ch/~asl-datasets/ijrr_euroc_mav_dataset/machine_hall/MH_01_easy/MH_01_easy.zip}"
 
 [ -x "$BIN" ] || { echo "ERROR: binary not found: $BIN (run setup_slam_pod.sh first)"; exit 1; }
 
 mkdir -p "$EUROC_DIR"
 if [ ! -d "$EUROC_DIR/mav0/cam0" ]; then
-  echo "Downloading EuRoC MH_01_easy (~1.4 GB)..."
-  wget -c "$URL" -O "$EUROC_DIR/MH_01_easy.zip"
+  echo "Downloading EuRoC MH_01_easy (~1.4 GB) from: $URL"
+  wget --tries=5 --timeout=30 --continue "$URL" -O "$EUROC_DIR/MH_01_easy.zip"
   echo "Unzipping..."
   unzip -q -o "$EUROC_DIR/MH_01_easy.zip" -d "$EUROC_DIR"
 fi
