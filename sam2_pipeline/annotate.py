@@ -39,9 +39,8 @@ OBJ_COLORS = {
 
 # Default labels — edit as needed
 DEFAULT_LABELS = {
-    1: "iron",
-    2: "sheet",
-    3: "cloth",
+    1: "package_bag",
+    2: "clips_bag",
 }
 
 
