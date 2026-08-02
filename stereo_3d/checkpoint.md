@@ -125,15 +125,68 @@ untouched:  `hands_3d.json` -> filter -> pose -> world.
 - IMU excluded from world-frame ON PURPOSE (it diverges on low-motion ego footage).
 
 ### NEXT STEPS (in order)
-1. **3D trajectory visualization** — plot world/cam hand trajectories on 3D axes
-   (client-facing artifact). IN PROGRESS.
-2. **Stage 4 — object 3D + 3D contact events** (camera frame). Bonus: a static object
-   gives the ground-truth point to finally validate the world trajectory.
+1. **3D trajectory visualization** — DONE. `plot_trajectory.py` (static PNG,
+   `world_traj.png`) + `animate_trajectory.py` (3D skeleton video, `world_traj.mp4`).
+2. **Stage 4 — objects + contact + activity** (camera frame). See STAGE 4 PLAN below.
 3. **Pod hygiene** — stop the RunPod pod (code in git, trajectory pulled locally).
 4. Optional: re-run `process_clip.py` on pod to populate `keypoints_2d_left/right`.
 
-### ENVIRONMENT NOTES
-- Local SLAM analysis/fusion: `venv` (numpy, opencv). Pod build: `setup_slam_pod.sh`.
-- Large derived JSONs (`hands_3d*.json`), `slam_data/`, `slam_out/` are gitignored.
-- Pod: `root@157.157.221.29 -p 24752`; repo at `/workspace/ego-training`, ORB-SLAM3
-  at `/workspace/ORB_SLAM3`. Raw data uploaded to `stereo_data/shared/` (~140MB).
+---
+
+## STAGE 4 PLAN — objects + contact + activity (2026-08-02)
+
+### SCENE REALITY (from actual frame inspection — see the ego view)
+- Wearer stands at a **large shiny curved metal table** (specular, low-texture,
+  strong fisheye curvature — this is why SLAM struggled).
+- **Objects present:** a PILE of **red/orange printed package bags** ("福虾"/shrimp
+  graphics, high-contrast) + **translucent plastic mesh/netting** (the "white bag of
+  clips", semi-transparent) + a blue bin at back.
+- **Two activities observed:**
+  1. **Right hand picks a clip** from the white netting/bag (source).
+  2. **Both hands insert the clip** into the handle of a red package bag (target).
+- A **2nd person's hands** appear on the image-left (already handled by wearer filter).
+
+### KEY DESIGN DECISIONS (honest, validated against the image)
+- **DO NOT mask the individual clip** — too small (few px), occluded inside the hand
+  exactly when it matters, low-contrast, deformable. Stereo-matching it = garbage 3D.
+  → **Use the HAND as the clip proxy:** after grasp, clip position ≈ grasp point
+  (thumb-tip kp4 ↔ index-tip kp8 midpoint, in 3D), clip orientation ≈ wrist pose.
+  Document this as an explicit approximation (clip pose *within* fingers is NOT
+  recovered — would need a marker or closer camera).
+- **Red package bags = reliable SAM2 target** (large, high-contrast, textured).
+- **Translucent netting = RISKY for SAM2** (transparent/mesh objects segment poorly).
+  Test it, but DO NOT promise it; may fall back to a "source region" instead of a mask.
+- **Pile problem:** many red bags → for "insert", mask the ACTIVE bag near the hands
+  (hand-guided SAM2 prompt), not all bags.
+- **Fisheye:** undistort mask POINTS (not the image) before lifting to 3D, same KB
+  approach as hands. Edge objects have severe distortion.
+
+### PLAN (validate-before-build: start with a SAM2 spike on ~4 frames)
+- **4a — SAM2 on the 2 big objects** (red bag(s), + attempt netting). Reuse
+  `sam2_pipeline/`. Prompt the active red bag near the hands. GATE: eyeball which
+  objects segment cleanly on 3-4 representative frames BEFORE committing.
+- **4b — lift masks to 3D** (stereo triangulate mask centroid/region; undistort pts) +
+  **hand↔object contact events** (3D distance thresholds → grasp/release).
+- **4c — activity segmentation** from hand↔object 3D proximity:
+  "pick from white/source region" (right hand) / "insert into red bag" (both hands).
+- **Object 6DoF (stretch):** position from mask 3D centroid; orientation from PCA on
+  the object's 3D points. Needed for the "insert" (alignment) signal; position-only
+  is quick, full orientation is the harder/higher-value part. Clip orientation comes
+  from the hand (proxy), not the clip mask.
+- **Bonus:** a static object (e.g. a red bag not being handled) = the ground-truth
+  point to finally validate the world trajectory (Stage 3 was NOT gt-verified).
+
+### "GOOD ENOUGH TO SHIP" vs "GREAT"
+- Ship: 4a (red bags) + 4b (3D contact) + 4c (2 activities).
+- Great: + grasp point on object + object 6DoF orientation for the insert.
+
+---
+
+## PARKED R&D — SO-101 retargeting (see RETARGETING_PLAN.md)
+- User HAS a **LeRobot SO-101** arm (6-DoF: J1 base, J2 shoulder, J3 elbow, J4 wrist
+  flex, J5 wrist roll, J6 gripper). Product direction = retargeting (human hand →
+  robot gripper), beyond annotations. **Parallel track, sim-first, AFTER Stage 4.**
+- Honest limit: SO-101 wrist has only pitch+roll (NO independent yaw) → can match
+  wrist position (IK on J1-3) + pitch/roll (J4-5) + grasp (J6 from thumb-index
+  aperture), but NOT full 3-DoF wrist orientation. Use existing IK libs (placo/ikpy),
+  don't hand-roll. Workspace scaling (human ~50cm → SO-101 ~40cm) required.
