@@ -57,6 +57,10 @@ stereo_3d/**/_wilor_frame3d_*.jpg
 stereo_3d/**/*.jpg
 # Large derived hand outputs (regenerable from the pipeline)
 stereo_3d/hands_3d*.json
+# Stage 3 (SLAM/VIO) — EuRoC-format extraction + ORB-SLAM3 run outputs (large)
+stereo_3d/slam_data/
+stereo_3d/slam_out/
+stereo_3d/orbbec/slam3/euroc_MH01/
 
 # OS
 .DS_Store
