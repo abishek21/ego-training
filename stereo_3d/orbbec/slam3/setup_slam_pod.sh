@@ -57,8 +57,8 @@ for d in DBoW2 g2o Sophus; do
   cd "$PREFIX/ORB_SLAM3"
 done
 
-# Vocabulary
-[ -f Vocabulary/ORBvoc.txt ] || (cd Vocabulary && tar -xf ORBvoc.txt.tar.gz)
+# Vocabulary (--no-same-owner: pod FS may forbid restoring tar ownership)
+[ -f Vocabulary/ORBvoc.txt ] || (cd Vocabulary && tar --no-same-owner -xf ORBvoc.txt.tar.gz)
 
 # ORB-SLAM3 itself. 50GB RAM => -j$(nproc) is safe (this OOM'd at -j4 on 6GB).
 mkdir -p build && cd build
