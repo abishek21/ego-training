@@ -1,0 +1,12 @@
+#,Annotation,What it is,Why it's useful for VLA teams,Status
+1,2D hand keypoints,"21 hand landmarks per hand, in image pixels (per camera)","Baseline hand tracking; visualization, 2D policies, debugging overlays",Done
+2,3D hand keypoints,"21 landmarks per hand in metric 3D (meters, camera frame) via stereo triangulation",Core signal for manipulation — where the hand is in real 3D space,Done
+3,Wearer-hand filtering,"Removes second-person hands, keeps only the camera-wearer's hands",Clean demonstrations — training data isn't polluted by bystander hands,Done
+4,Wrist 6DoF pose,"Wrist position + orientation (quaternion / rotation matrix), camera frame",Maps directly to a robot end-effector (gripper) pose — key for imitation,Done (camera frame)
+5,Joint angles,Per-finger flexion angles + MANO-style joint rotations,Captures grasp shape (open / pinch / fist) — how the hand holds objects,Done
+6,Handedness (L/R) + QA flag,Left/right label per hand + uncertainty flag on doubtful cases,Correctly separates left vs right arm for bimanual manipulation,Done
+7,Data integrity (timestamps/fps),Exact microsecond timestamp + exact fps preserved per frame,Sync across sensors; trustworthy temporal trajectories for training,Done
+8,Object masks (2D),Per-frame segmentation masks of manipulated objects,Identifies what is being manipulated; hand-object association,Not started
+9,Object 3D + 3D contact events,Object position in 3D + when/where hand contacts object,The actual manipulation event — grasp/release moments for policy learning,Not started
+10,World-frame trajectories,Hand & object poses in a fixed room frame (via visual-inertial SLAM),Consistent-over-time absolute motion; needed for full trajectory learning,Not started
+11,Activity / action events,Labeled action segments over time,Temporal grounding — which action is happening when,Not started
