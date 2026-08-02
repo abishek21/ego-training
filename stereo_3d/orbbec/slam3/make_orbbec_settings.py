@@ -54,6 +54,8 @@ def main():
                    help="ORB iniThFAST; lower (e.g. 10) for low-contrast ego video")
     p.add_argument("--min-fast", type=int, default=7,
                    help="ORB minThFAST; lower (e.g. 3) for low-contrast ego video")
+    p.add_argument("--no-imu", action="store_true",
+                   help="omit IMU fields (for stereo-only diagnostic run)")
     args = p.parse_args()
 
     data = Path(args.data)
@@ -121,13 +123,14 @@ def main():
     lines.append("Camera.RGB: 0  # IR/gray")
     lines.append("Stereo.ThDepth: 40.0")
     lines.append("")
-    lines.append(mat_block("IMU.T_b_c1", T_b_c1))
-    lines.append(f"IMU.NoiseGyro: {imu.gyro_noise_density:.10g}")
-    lines.append(f"IMU.NoiseAcc: {imu.accel_noise_density:.10g}")
-    lines.append(f"IMU.GyroWalk: {imu.gyro_random_walk:.10g}")
-    lines.append(f"IMU.AccWalk: {imu.accel_random_walk:.10g}")
-    lines.append(f"IMU.Frequency: {imu.update_rate_hz:.1f}")
-    lines.append("")
+    if not args.no_imu:
+        lines.append(mat_block("IMU.T_b_c1", T_b_c1))
+        lines.append(f"IMU.NoiseGyro: {imu.gyro_noise_density:.10g}")
+        lines.append(f"IMU.NoiseAcc: {imu.accel_noise_density:.10g}")
+        lines.append(f"IMU.GyroWalk: {imu.gyro_random_walk:.10g}")
+        lines.append(f"IMU.AccWalk: {imu.accel_random_walk:.10g}")
+        lines.append(f"IMU.Frequency: {imu.update_rate_hz:.1f}")
+        lines.append("")
     lines.append(f"ORBextractor.nFeatures: {args.nfeatures}")
     lines.append("ORBextractor.scaleFactor: 1.2")
     lines.append("ORBextractor.nLevels: 8")
