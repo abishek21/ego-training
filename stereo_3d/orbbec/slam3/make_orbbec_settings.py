@@ -104,7 +104,10 @@ def main():
     lines.append("")
     lines.append(f"Camera.width: {W}")
     lines.append(f"Camera.height: {H}")
-    lines.append(f"Camera.fps: {args.fps:.6f}")
+    # ORB-SLAM3 requires an INTEGER fps. This is only a coarse hint (keyframe
+    # heuristics); real frame timing comes from the microsecond timestamps we
+    # feed, which stay exact. So rounding here does NOT affect sync integrity.
+    lines.append(f"Camera.fps: {int(round(args.fps))}")
     lines.append("Camera.RGB: 0  # IR/gray")
     lines.append("Stereo.ThDepth: 40.0")
     lines.append("")
