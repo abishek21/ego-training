@@ -48,6 +48,12 @@ def main():
                    help="more than TUM (1000): our images are 1600x1300")
     p.add_argument("--tbc-direct", action="store_true",
                    help="use T_cam_imu directly for IMU.T_b_c1 (default: inverse)")
+    p.add_argument("--flip-stereo", action="store_true",
+                   help="invert Stereo.T_c1_c2 (try if stereo init makes 0 points)")
+    p.add_argument("--ini-fast", type=int, default=20,
+                   help="ORB iniThFAST; lower (e.g. 10) for low-contrast ego video")
+    p.add_argument("--min-fast", type=int, default=7,
+                   help="ORB minThFAST; lower (e.g. 3) for low-contrast ego video")
     args = p.parse_args()
 
     data = Path(args.data)
@@ -59,6 +65,10 @@ def main():
     T_c1_c2 = np.eye(4)
     T_c1_c2[:3, :3] = R.R_ref_cam
     T_c1_c2[:3, 3] = R.t_ref_cam  # already meters
+    if args.flip_stereo:
+        # ORB-SLAM3's T_c1_c2 convention/direction is ambiguous; if stereo
+        # init produces ~0 points, the matrix is likely reversed -> invert it.
+        T_c1_c2 = np.linalg.inv(T_c1_c2)
 
     # IMU.T_b_c1 : left cam pose in IMU/body frame. Provider T_cam_imu has mm
     # translation -> convert to meters, then invert (unless --tbc-direct).
@@ -121,8 +131,8 @@ def main():
     lines.append(f"ORBextractor.nFeatures: {args.nfeatures}")
     lines.append("ORBextractor.scaleFactor: 1.2")
     lines.append("ORBextractor.nLevels: 8")
-    lines.append("ORBextractor.iniThFAST: 20")
-    lines.append("ORBextractor.minThFAST: 7")
+    lines.append(f"ORBextractor.iniThFAST: {args.ini_fast}")
+    lines.append(f"ORBextractor.minThFAST: {args.min_fast}")
     lines.append("")
     lines.append("Viewer.KeyFrameSize: 0.05")
     lines.append("Viewer.KeyFrameLineWidth: 1.0")
@@ -138,8 +148,9 @@ def main():
     out = Path(args.out)
     out.write_text("\n".join(lines) + "\n")
     print(f"Wrote {out}")
-    print(f"  Stereo.T_c1_c2 t = {T_c1_c2[:3,3].round(5)} (baseline {np.linalg.norm(T_c1_c2[:3,3]):.5f} m)")
+    print(f"  Stereo.T_c1_c2 t = {T_c1_c2[:3,3].round(5)} (baseline {np.linalg.norm(T_c1_c2[:3,3]):.5f} m){'  [FLIPPED]' if args.flip_stereo else ''}")
     print(f"  IMU.T_b_c1 mode = {'T_cam_imu DIRECT' if args.tbc_direct else 'inv(T_cam_imu)'}")
+    print(f"  ORB: nFeatures={args.nfeatures} iniFAST={args.ini_fast} minFAST={args.min_fast}")
     print(f"  IMU noise: gyro {imu.gyro_noise_density:.3e} acc {imu.accel_noise_density:.3e} @ {imu.update_rate_hz}Hz")
 
 

@@ -35,9 +35,19 @@ ln -sfn "$SLAM_DATA" "$SEQ/mav0"
 
 mkdir -p "$OUT"
 cd "$OUT"
+
+# Fast iteration: NFRAMES=400 processes only the first N frames (the example
+# only loads frames listed in the timestamps file). Unset => full clip.
+TIMES="$SLAM_DATA/timestamps.txt"
+if [ -n "${NFRAMES:-}" ]; then
+  TIMES="$OUT/timestamps_${NFRAMES}.txt"
+  head -n "$NFRAMES" "$SLAM_DATA/timestamps.txt" > "$TIMES"
+  echo "  (fast mode: first $NFRAMES frames)"
+fi
+
 echo "Running ORB-SLAM3 on Orbbec clip (headless via Xvfb)..."
 echo "  settings: $SETTINGS"
-xvfb-run -a "$BIN" "$VOC" "$SETTINGS" "$SEQ" "$SLAM_DATA/timestamps.txt" orbbec_traj || true
+xvfb-run -a "$BIN" "$VOC" "$SETTINGS" "$SEQ" "$TIMES" orbbec_traj || true
 
 echo "--- outputs ---"; ls -la "$OUT"
 for f in f_orbbec_traj.txt kf_orbbec_traj.txt; do
