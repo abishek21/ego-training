@@ -43,6 +43,11 @@ OBJ_COLORS = {"obj_1": (0, 100, 255), "obj_2": (255, 150, 0)}   # BGR
 OBJ_NAMES = {"obj_1": "package_bag", "obj_2": "clips_bag"}
 HAND_COLORS = {"Left": (0, 255, 0), "Right": (255, 200, 0)}
 
+# Stage 4c: map each object-contact to the manipulation activity it belongs to.
+# clips_bag contact = the "pick a clip from the source bag" activity.
+# package_bag contact = the "insert the clip into the package bag" activity.
+ACTIVITY_MAP = {"clips_bag": "pick_clip", "package_bag": "insert_clip"}
+
 
 def project_kb(pts3d, cam):
     obj = np.asarray(pts3d, np.float64).reshape(-1, 1, 3)
@@ -154,14 +159,18 @@ def main():
         prev = False
         for k, i in enumerate(idxs):
             cur = sig[k]
+            oname = OBJ_NAMES.get(okey, okey)
+            activity = ACTIVITY_MAP.get(oname, "unknown")
             if cur and not prev:
                 events.append({"type": "grasp", "frame_idx": int(i),
                                "timestamp_us": hands_by_frame[i]["timestamp_us"],
-                               "hand": hd_lbl, "object": OBJ_NAMES.get(okey, okey)})
+                               "hand": hd_lbl, "object": oname,
+                               "activity": activity})
             elif not cur and prev:
                 events.append({"type": "release", "frame_idx": int(i),
                                "timestamp_us": hands_by_frame[i]["timestamp_us"],
-                               "hand": hd_lbl, "object": OBJ_NAMES.get(okey, okey)})
+                               "hand": hd_lbl, "object": oname,
+                               "activity": activity})
             prev = cur
     events.sort(key=lambda e: e["frame_idx"])
 
@@ -173,6 +182,7 @@ def main():
             "touch_px": args.touch_px,
             "debounce": {"min_on": args.min_on, "min_off": args.min_off},
             "objects": OBJ_NAMES,
+            "activity_map": ACTIVITY_MAP,
             "method": "2D fingertip-to-mask proximity (KB reprojection); inferred, not sensed",
             "caveat": "2D proximity ignores depth; hand in front of object may register contact.",
             "n_events": len(events),
