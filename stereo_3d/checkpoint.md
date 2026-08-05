@@ -191,6 +191,51 @@ untouched:  `hands_3d.json` -> filter -> pose -> world.
 
 ---
 
+## STAGE 4 — DONE (2026-08-05) ✅
+
+### 4a — object masks (DONE)
+- Full-clip SAM2 on LEFT cam: **3592/3592 frames**, 2 objects (`obj_1`=package_bag,
+  `obj_2`=clips_bag). Both masks clean across whole clip (verified on overlay,
+  incl. the translucent netting). Prompts: `sam2_pipeline/prompts_stereo.json`.
+- **OOM fix (important):** non-chunked `segment.py` accumulated all masks in RAM
+  (~15GB) AND SAM2 init_state loaded all frames + growing state to CPU (~70GB total)
+  → "Killed" at ~50GB container cap (GPU was idle!). Two fixes: (1) stream masks to
+  disk during propagation; (2) `segment_chunked.py` — windowed (500 frames) with
+  mask re-seed across boundaries + state kept on GPU. Chunked run completed clean.
+- Right cam NOT segmented → objects are LEFT-2D only (no object 3D). Fine for contact.
+
+### 4b — contact events (DONE, camera-frame 2D)
+- `contact_events.py`: reproject wearer 3D hand keypoints → 2D (KB fisheye), measure
+  fingertip-to-mask proximity (distance transform), contact if <`--touch-px` (25),
+  debounced. Grasp/release = edges. → `contact_events.json` (**114 events**) +
+  validation overlay `contact_overlay.mp4` (frame + masks + hands + side panel:
+  contact state + event log). USER VALIDATED on video — no false greens seen.
+- Event schema: `type`(grasp/release), `frame_idx`, `timestamp_us`, `hand`, `object`.
+- Pattern matches the task: Right hand shuttles clips_bag→package_bag repeatedly;
+  Left hand holds package_bag (long holds) = bimanual stabilize-while-insert.
+- **3D contact deemed UNNECESSARY** (user call): 2D events + existing 3D hand pos
+  cover it; hand depth already available per frame if needed.
+
+### 4c — activity labels (TRIED, then REVERTED)
+- Added `activity` field (clips_bag=pick_clip, package_bag=insert_clip) + overlay
+  banner. User found pick_clip too rare/noisy → **reverted** (field removed from JSON,
+  banner removed). Events stay clean (type/frame/ts/hand/object only).
+
+### DELIVERABLES (for client / robotics team)
+- `ANNOTATION_DELIVERABLES_DOC.txt` (Google-Docs plain text) +
+  `ANNOTATION_DELIVERABLES.md` (Markdown). Describe all 5 files, WHAT not HOW —
+  **scrubbed of internal model/tool/method names** (only MANO kept as public format).
+- `object_masks_delivery.zip` (22MB): 3592 `.npz` masks + summary.json.
+- Delivery set: `hands_3d_wearer.json`, `hands_3d_pose.json`, `hands_3d_world.json`,
+  `contact_events.json`, object masks zip.
+
+### REMAINING / OPTIONAL
+- Object 3D/6DoF (needs right-cam masks) — stretch, not requested.
+- 2D keypoints in hand JSON (needs pod re-run of process_clip.py) — minor.
+- SO-101 retargeting (parked — see RETARGETING_PLAN.md).
+
+---
+
 ## PARKED R&D — SO-101 retargeting (see RETARGETING_PLAN.md)
 - User HAS a **LeRobot SO-101** arm (6-DoF: J1 base, J2 shoulder, J3 elbow, J4 wrist
   flex, J5 wrist roll, J6 gripper). Product direction = retargeting (human hand →

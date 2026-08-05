@@ -61,6 +61,14 @@ stereo_3d/hands_3d*.json
 stereo_3d/slam_data/
 stereo_3d/slam_out/
 stereo_3d/orbbec/slam3/euroc_MH01/
+# Stage 4 (objects/contact) + delivery artifacts (large / regenerable)
+stereo_3d/contact_events*.json
+stereo_3d/contact_overlay*.mp4
+stereo_3d/object_masks_delivery.zip
+stereo_3d/world_traj.mp4
+stereo_3d/*.mp4
+sam2_pipeline/masks_*full/
+sam2_pipeline/spike_out/
 
 # OS
 .DS_Store
