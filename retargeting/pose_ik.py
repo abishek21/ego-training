@@ -85,14 +85,19 @@ def robot_reachable_box(robot, mov, n=20000, seed=0):
 
 class WorkspaceMapper:
     """[B1][B2] map human wrist positions -> robot target box (placeholder)."""
-    def __init__(self, human_pos, box_min, box_max, box_center, box_frac, axis_map):
+    def __init__(self, human_pos, box_min, box_max, box_center, box_frac, axis_map,
+                 box_offset=(0.0, 0.0, 0.0)):
         self.h_min = human_pos.min(0)
         self.h_max = human_pos.max(0)
         self.h_rng = np.maximum(self.h_max - self.h_min, 1e-6)
         # shrink reachable box around its center to stay off the limits
         half = (box_max - box_min) / 2 * box_frac
-        self.t_min = box_center - half
-        self.t_max = box_center + half
+        off = np.asarray(box_offset, dtype=np.float64)
+        # [B1] shift the working box (default forward +X) so the arm operates in
+        # FRONT of itself, matching the human working over the table — instead of
+        # near/behind the base (the reachable centroid sits ~behind the origin).
+        self.t_min = box_center - half + off
+        self.t_max = box_center + half + off
         self.axis_map = axis_map
 
     def map(self, hp):
@@ -113,9 +118,17 @@ def main():
     ap.add_argument("--gui", action="store_true")
     ap.add_argument("--box-frac", type=float, default=0.55,
                     help="[B1] fraction of reachable box to use (smaller=safer)")
+    ap.add_argument("--fwd", type=float, default=0.20,
+                    help="[B1] shift working box forward +X (m) so arm works in front")
+    ap.add_argument("--up", type=float, default=0.05,
+                    help="[B1] shift working box up +Z (m)")
     ap.add_argument("--tol", type=float, default=0.02, help="[B4] pos error flag (m)")
     ap.add_argument("--fps", type=float, default=30.0)
     ap.add_argument("--stride", type=int, default=1)
+    ap.add_argument("--slow", type=float, default=1.0,
+                    help="slow-mo factor (2 = half speed, 4 = quarter)")
+    ap.add_argument("--video", default=None,
+                    help="source left mp4 to show in sync for correlation")
     args = ap.parse_args()
 
     data = json.load(open(args.hands))
@@ -133,7 +146,31 @@ def main():
     ranges = [u - l for l, u in zip(lower, upper)]
 
     bmin, bmax, bcenter = robot_reachable_box(robot, mov)
-    mapper = WorkspaceMapper(human_pos, bmin, bmax, bcenter, args.box_frac, DEFAULT_AXIS_MAP)
+    mapper = WorkspaceMapper(human_pos, bmin, bmax, bcenter, args.box_frac,
+                             DEFAULT_AXIS_MAP, box_offset=(args.fwd, 0.0, args.up))
+
+    # ---- scene orientation aids (so you can tell which way the robot faces) ----
+    video_cap = None
+    if args.gui:
+        try:
+            p.loadURDF("plane.urdf")
+        except Exception:
+            pass
+        # world axis triad at the base: X red(FWD), Y green(LEFT), Z blue(UP)
+        o = [0, 0, 0]
+        p.addUserDebugLine(o, [0.25, 0, 0], [1, 0, 0], lineWidth=3)
+        p.addUserDebugLine(o, [0, 0.25, 0], [0, 1, 0], lineWidth=3)
+        p.addUserDebugLine(o, [0, 0, 0.25], [0, 0, 1], lineWidth=3)
+        p.addUserDebugText("X (robot FORWARD)", [0.27, 0, 0], [1, 0, 0], textSize=1.1)
+        p.addUserDebugText("Y (robot LEFT)", [0, 0.27, 0], [0, 1, 0], textSize=1.1)
+        p.addUserDebugText("Z (UP)", [0, 0, 0.27], [0, 0.4, 1], textSize=1.1)
+        # fixed, consistent camera looking at the workspace
+        p.resetDebugVisualizerCamera(cameraDistance=0.9, cameraYaw=50,
+                                     cameraPitch=-30, cameraTargetPosition=[0, -0.1, 0.2])
+        if args.video:
+            import cv2
+            video_cap = cv2.VideoCapture(args.video)
+            video_pos = -1   # last decoded frame index (sequential, exact)
 
     print("=" * 70)
     print("PHASE 1c — POSITION IK (human wrist -> SO-101 J1..J5)")
@@ -179,8 +216,27 @@ def main():
                    f"J1..J5 deg [{qd[0]:+.0f} {qd[1]:+.0f} {qd[2]:+.0f} {qd[3]:+.0f} {qd[4]:+.0f}]")
             hud = p.addUserDebugText(txt, [0, 0, 0.6], textColorRGB=[1, 1, 1],
                                      textSize=1.3, replaceItemUniqueId=hud or -1)
+            # synced source video frame for correlation.
+            # SEQUENTIAL decode (fast + exact) — random-seek per frame is slow
+            # AND lands on keyframes, causing false desync. Advance to fidx.
+            if video_cap is not None:
+                import cv2
+                vframe = None
+                while video_pos < fidx:
+                    ok = video_cap.grab()         # cheap: advance without decode
+                    video_pos += 1
+                    if not ok:
+                        break
+                if video_pos == fidx:
+                    ok, vframe = video_cap.retrieve()
+                    if ok:
+                        vframe = cv2.resize(vframe, (640, 520))
+                        cv2.putText(vframe, f"SOURCE  frame {fidx}", (12, 30),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                        cv2.imshow("source video (real hand)", vframe)
+                        cv2.waitKey(1)
             p.stepSimulation()
-            time.sleep(1.0 / args.fps)
+            time.sleep(args.slow / args.fps)
 
     errors = np.array(errors)
     print("-" * 70)
