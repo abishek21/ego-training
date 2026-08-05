@@ -81,3 +81,4 @@ physx_pipeline/*.preview.png
 # Retargeting sim env + downloaded robot meshes (large / re-downloadable)
 venv_retarget/
 retargeting/so101/assets/
+retargeting/gripper_signal*.json
