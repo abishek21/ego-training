@@ -77,3 +77,7 @@ sam2_pipeline/spike_out/
 physx_pipeline/iron_16s_*
 physx_pipeline/iron_frame*
 physx_pipeline/*.preview.png
+
+# Retargeting sim env + downloaded robot meshes (large / re-downloadable)
+venv_retarget/
+retargeting/so101/assets/
