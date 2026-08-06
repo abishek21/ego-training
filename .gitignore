@@ -82,3 +82,5 @@ physx_pipeline/*.preview.png
 venv_retarget/
 retargeting/so101/assets/
 retargeting/gripper_signal*.json
+retargeting/wrist_traj_filled*.json
+retargeting/*.mp4
