@@ -111,6 +111,93 @@ class WorkspaceMapper:
         return out
 
 
+def solve_ik(robot, arm_joints, lower, upper, ranges, target, seed):
+    sol = p.calculateInverseKinematics(
+        robot, EE_LINK, targetPosition=target.tolist(),
+        lowerLimits=lower, upperLimits=upper, jointRanges=ranges,
+        restPoses=seed, maxNumIterations=200, residualThreshold=1e-4)
+    q = list(sol[:len(arm_joints)])
+    for j, qi in zip(arm_joints, q):
+        p.resetJointState(robot, j, qi)
+    achieved = np.array(p.getLinkState(robot, EE_LINK)[0])
+    return q, achieved
+
+
+def render_video(robot, arm_joints, lower, upper, ranges, mapper, recs, args):
+    """Offline-render a smooth side-by-side MP4: robot (left) | real video (right).
+    Uses TinyRenderer (CPU, DIRECT mode) so it never lags — compute-then-write."""
+    import cv2
+    W = H = 640
+    try:
+        p.loadURDF("plane.urdf")
+    except Exception:
+        pass
+    vs = p.createVisualShape(p.GEOM_SPHERE, radius=0.012, rgbaColor=[0, 1, 0, 0.8])
+    marker = p.createMultiBody(baseVisualShapeIndex=vs, basePosition=[0, 0, 0])
+    view = p.computeViewMatrixFromYawPitchRoll(
+        cameraTargetPosition=args.cam_target, distance=args.cam_dist,
+        yaw=args.cam_yaw, pitch=args.cam_pitch, roll=0, upAxisIndex=2)
+    proj = p.computeProjectionMatrixFOV(fov=55, aspect=1.0, nearVal=0.02, farVal=3.0)
+
+    cap = cv2.VideoCapture(args.video) if args.video else None
+    vpos = -1
+    writer = None
+    for codec in ("avc1", "mp4v"):
+        w = cv2.VideoWriter(args.render, cv2.VideoWriter_fourcc(*codec),
+                            args.out_fps, (W * 2, H))
+        if w.isOpened():
+            writer = w; break
+        w.release()
+
+    seed = [0.0] * len(arm_joints)
+    errors = []
+    print(f"Rendering {len(recs)} frames -> {args.render}")
+    for k, (fidx, ts, hp) in enumerate(recs):
+        target = mapper.map(hp)
+        q, achieved = solve_ik(robot, arm_joints, lower, upper, ranges, target, seed)
+        seed = q
+        err = float(np.linalg.norm(achieved - target)); errors.append(err)
+        p.resetBasePositionAndOrientation(marker, target.tolist(), [0, 0, 0, 1])
+
+        img = p.getCameraImage(W, H, view, proj, renderer=p.ER_TINY_RENDERER)
+        rob = np.reshape(img[2], (H, W, 4))[:, :, :3].astype(np.uint8)
+        rob = cv2.cvtColor(rob, cv2.COLOR_RGB2BGR)
+        qd = [np.degrees(x) for x in q]
+        lines = [f"SO-101 (retargeted)  frame {fidx}",
+                 f"target  [{target[0]:+.2f} {target[1]:+.2f} {target[2]:+.2f}] m",
+                 f"pos err {err*100:4.1f} cm  {'OK' if err <= args.tol else 'HIGH'}",
+                 f"J1-5 deg [{qd[0]:+.0f} {qd[1]:+.0f} {qd[2]:+.0f} {qd[3]:+.0f} {qd[4]:+.0f}]",
+                 "X=fwd(red) Y=left(grn) Z=up(blu)"]
+        y = 22
+        for ln in lines:
+            cv2.putText(rob, ln, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                        (0, 255, 180), 1, cv2.LINE_AA); y += 22
+
+        # real video (sequential exact)
+        src = np.zeros((H, W, 3), np.uint8)
+        if cap is not None:
+            while vpos < fidx:
+                if not cap.grab():
+                    break
+                vpos += 1
+            if vpos == fidx:
+                ok, vf = cap.retrieve()
+                if ok:
+                    src = cv2.resize(vf, (W, H))
+        cv2.putText(src, f"SOURCE (real hand)  frame {fidx}", (10, 22),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
+
+        writer.write(np.hstack([rob, src]))
+        if (k + 1) % 200 == 0:
+            print(f"  {k+1}/{len(recs)}")
+    writer.release()
+    if cap:
+        cap.release()
+    errors = np.array(errors)
+    print(f"Done -> {args.render}  (median err {np.median(errors)*100:.1f}cm, "
+          f"{(errors<=args.tol).mean()*100:.0f}% within {args.tol*100:.0f}cm)")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--hands", required=True)
@@ -129,6 +216,14 @@ def main():
                     help="slow-mo factor (2 = half speed, 4 = quarter)")
     ap.add_argument("--video", default=None,
                     help="source left mp4 to show in sync for correlation")
+    ap.add_argument("--render", default=None,
+                    help="offline-render a side-by-side MP4 (robot | real video)")
+    # camera (defaults = the view the user locked in)
+    ap.add_argument("--cam-target", type=float, nargs=3, default=[0.0, -0.10, 0.20])
+    ap.add_argument("--cam-dist", type=float, default=0.90)
+    ap.add_argument("--cam-yaw", type=float, default=-90.76)
+    ap.add_argument("--cam-pitch", type=float, default=-58.84)
+    ap.add_argument("--out-fps", type=float, default=30.0, help="render mp4 fps")
     args = ap.parse_args()
 
     data = json.load(open(args.hands))
@@ -148,6 +243,12 @@ def main():
     bmin, bmax, bcenter = robot_reachable_box(robot, mov)
     mapper = WorkspaceMapper(human_pos, bmin, bmax, bcenter, args.box_frac,
                              DEFAULT_AXIS_MAP, box_offset=(args.fwd, 0.0, args.up))
+
+    # ---- offline render mode: smooth side-by-side MP4, no GUI lag ----
+    if args.render:
+        render_video(robot, arm_joints, lower, upper, ranges, mapper, recs, args)
+        p.disconnect()
+        return
 
     # ---- scene orientation aids (so you can tell which way the robot faces) ----
     video_cap = None
