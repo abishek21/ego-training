@@ -219,10 +219,10 @@ def main():
     ap.add_argument("--render", default=None,
                     help="offline-render a side-by-side MP4 (robot | real video)")
     # camera (defaults = the view the user locked in)
-    ap.add_argument("--cam-target", type=float, nargs=3, default=[0.0, -0.10, 0.20])
-    ap.add_argument("--cam-dist", type=float, default=0.90)
-    ap.add_argument("--cam-yaw", type=float, default=-90.76)
-    ap.add_argument("--cam-pitch", type=float, default=-58.84)
+    ap.add_argument("--cam-target", type=float, nargs=3, default=[0.13, -0.17, 0.27])
+    ap.add_argument("--cam-dist", type=float, default=0.8)
+    ap.add_argument("--cam-yaw", type=float, default=-89.4)
+    ap.add_argument("--cam-pitch", type=float, default=-67.9)
     ap.add_argument("--out-fps", type=float, default=30.0, help="render mp4 fps")
     args = ap.parse_args()
 

@@ -76,10 +76,12 @@ def main():
     ap.add_argument("--fwd", type=float, default=0.20)
     ap.add_argument("--up", type=float, default=0.05)
     ap.add_argument("--tol", type=float, default=0.02)
-    ap.add_argument("--cam-dist", type=float, default=0.9)
-    ap.add_argument("--cam-yaw", type=float, default=50)
-    ap.add_argument("--cam-pitch", type=float, default=-30)
-    ap.add_argument("--cam-target", type=float, nargs=3, default=[0, -0.1, 0.2])
+    ap.add_argument("--cam-dist", type=float, default=0.8)
+    ap.add_argument("--cam-yaw", type=float, default=-89.4)
+    ap.add_argument("--cam-pitch", type=float, default=-67.9)
+    # angle from user's pick; target re-aimed at the arm's WORKING region center
+    # (not the rest-pose base the picker showed) so the moving arm stays framed.
+    ap.add_argument("--cam-target", type=float, nargs=3, default=[0.13, -0.17, 0.27])
     ap.add_argument("--stride", type=int, default=1)
     ap.add_argument("--drop-lowconf", action="store_true",
                     help="skip lowconf frames entirely (default: render, marked)")
